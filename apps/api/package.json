@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "oxlint src test",
     "test": "vitest run --project unit",
+    "test:db": "vitest run --project db",
     "test:integration": "vitest run --project integration"
   },
   "devDependencies": {

@@ -1,0 +1,33 @@
+{
+  "valid": {
+    "name": "  Dana Sample  ",
+    "email": "  Dana.Sample+Leads@Example.COM ",
+    "phone": " +1 (555) 010-2030 ",
+    "company": "Example Logistics Co",
+    "jobTitle": "Head of Operations",
+    "website": "Example.com/",
+    "source": "landing_page",
+    "message": "We need a customer portal that syncs orders from our ERP. Budget is around $30k and we would like to launch in Q1.",
+    "hp": "",
+    "submissionId": "sub-2026-10-31-0001"
+  },
+  "honeypot": {
+    "name": "Bot",
+    "email": "bot@example.com",
+    "company": "Bot Inc",
+    "message": "Buy cheap backlinks for your website today!",
+    "hp": "http://spam.example.com"
+  },
+  "invalidEmail": {
+    "name": "Dana Sample",
+    "email": "dana-at-example.com",
+    "company": "Example Logistics Co",
+    "message": "We need a customer portal that syncs orders from our ERP."
+  },
+  "missingFields": {
+    "email": "dana@example.com",
+    "company": "   ",
+    "message": "too short",
+    "source": "fax"
+  }
+}

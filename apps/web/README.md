@@ -1,32 +1,25 @@
-# React + TypeScript + Vite
+# @leadpilot/web
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React SPA for LeadPilot AI (Vite 8, React 19, TypeScript 7, Tailwind CSS 4, shadcn/ui on Base UI,
+TanStack Query 5, React Router 7). Deployed to Cloudflare Pages.
 
-Currently, two official plugins are available:
+## Run
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```sh
+cp apps/web/.env.example apps/web/.env.local   # optional: fill in Supabase to enable sign-in
+npm run dev:web                                 # http://localhost:5173
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Without Supabase values the auth pages explain that sign-in is unavailable, and the read-only
+portfolio preview at `/preview/dashboard` still works (it reads `/api/v1/demo/*` from `VITE_API_URL`).
+
+## Scripts (from `apps/web`)
+
+| Command | Purpose |
+|---|---|
+| `npx tsc -b` | Typecheck |
+| `npx oxlint src` | Lint |
+| `npx vitest run` | Unit tests (jsdom) |
+| `npx vite build` | Production build to `dist/` |
+
+Conventions, hooks and shared components are documented in [`docs/FRONTEND.md`](../../docs/FRONTEND.md).

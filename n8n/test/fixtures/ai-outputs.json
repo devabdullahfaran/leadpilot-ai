@@ -1,0 +1,86 @@
+{
+  "fenced": "```json\n{\"score\": 82, \"priority\": \"high\", \"category\": \"software_development\", \"summary\": \"Wants a customer portal integrated with their ERP.\", \"reasoning\": \"Clear request for a service the studio sells, with budget and timeline. The sender is a head of operations at a named company.\", \"recommendedAction\": \"Schedule a discovery call this week\", \"confidence\": 0.86, \"criteria\": [{\"key\": \"intent\", \"score\": 23}, {\"key\": \"fit\", \"score\": 22, \"note\": \"Custom web app\"}, {\"key\": \"budget_timeline\", \"score\": 16}, {\"key\": \"authority\", \"score\": 12}, {\"key\": \"completeness\", \"score\": 10}]}\n```",
+  "inconsistentSum": {
+    "score": 90,
+    "priority": "high",
+    "category": "consulting",
+    "summary": "Asks general questions about consulting.",
+    "reasoning": "Interest is vague and no budget or timeline is given.",
+    "recommendedAction": "Reply with a short questionnaire",
+    "confidence": 0.7,
+    "criteria": [
+      { "key": "intent", "score": 15 },
+      { "key": "fit", "score": 15 },
+      { "key": "budget_timeline", "score": 5 },
+      { "key": "authority", "score": 10 },
+      { "key": "completeness", "score": 5 }
+    ]
+  },
+  "clampedAndUnknown": {
+    "score": 74,
+    "priority": "high",
+    "category": "ai_automation",
+    "summary": "Wants an AI assistant for support tickets.",
+    "reasoning": "Strong fit and intent.",
+    "recommendedAction": "Send case studies and book a call",
+    "confidence": 0.9,
+    "criteria": [
+      { "key": "intent", "score": 30 },
+      { "key": "fit", "score": 24 },
+      { "key": "budget_timeline", "score": 12.4 },
+      { "key": "authority", "score": 8 },
+      { "key": "completeness", "score": 5 },
+      { "key": "vibes", "score": 9 }
+    ]
+  },
+  "spam": {
+    "score": 75,
+    "priority": "high",
+    "category": "spam",
+    "summary": "Unsolicited SEO backlink offer.",
+    "reasoning": "Marketing pitch, not a project inquiry.",
+    "recommendedAction": "Mark as spam and archive",
+    "confidence": 0.95,
+    "criteria": [
+      { "key": "intent", "score": 20 },
+      { "key": "fit", "score": 20 },
+      { "key": "budget_timeline", "score": 15 },
+      { "key": "authority", "score": 10 },
+      { "key": "completeness", "score": 10 }
+    ]
+  },
+  "lowConfidence": {
+    "score": 45,
+    "priority": "medium",
+    "category": "other",
+    "summary": "Short message asking for a call.",
+    "reasoning": "Too little information to judge fit.",
+    "recommendedAction": "Ask what they need before booking a call",
+    "confidence": 0.4,
+    "criteria": [
+      { "key": "intent", "score": 15 },
+      { "key": "fit", "score": 10 },
+      { "key": "budget_timeline", "score": 5 },
+      { "key": "authority", "score": 8 },
+      { "key": "completeness", "score": 7 }
+    ]
+  },
+  "unknownCategory": {
+    "score": 60,
+    "priority": "medium",
+    "category": "blockchain",
+    "summary": "Wants an NFT marketplace.",
+    "reasoning": "Outside the configured categories.",
+    "recommendedAction": "Reply politely",
+    "confidence": 0.8,
+    "criteria": []
+  },
+  "missingFields": {
+    "score": 60,
+    "priority": "urgent",
+    "category": "other",
+    "summary": "",
+    "confidence": 1.5,
+    "criteria": [{ "key": "intent", "score": 10, "note": null }]
+  }
+}

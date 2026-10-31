@@ -106,6 +106,7 @@ export function reconcileScore(
 
   if (criteria.length > 0) {
     const maxByKey = new Map(rubric.map((c) => [c.key, c.maxPoints]))
+    const seen = new Set<string>()
     let sum = 0
     for (const c of criteria) {
       const max = maxByKey.get(c.key)
@@ -113,6 +114,12 @@ export function reconcileScore(
         adjustments.push(`Ignored unknown criterion "${c.key}".`)
         continue
       }
+      // The response schema cannot enforce unique keys, so a repeated criterion would be counted twice.
+      if (seen.has(c.key)) {
+        adjustments.push(`Ignored duplicate criterion "${c.key}".`)
+        continue
+      }
+      seen.add(c.key)
       const clamped = Math.min(max, Math.max(0, Math.round(c.score)))
       if (clamped !== c.score) adjustments.push(`Clamped "${c.key}" from ${c.score} to ${clamped}.`)
       sum += clamped

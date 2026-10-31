@@ -1,0 +1,11 @@
+{
+  "name": "Dana Sample",
+  "email": "dana.sample@example.com",
+  "phone": "+1 (555) 010-2030",
+  "company": "Example Logistics Co (sample)",
+  "jobTitle": "Head of Operations",
+  "website": "example.com",
+  "source": "landing_page",
+  "message": "[Sample test lead] We need a customer portal that syncs orders from our ERP. Budget is around $30k and we would like to launch in Q1.",
+  "hp": ""
+}
