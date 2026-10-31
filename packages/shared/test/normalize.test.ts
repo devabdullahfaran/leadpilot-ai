@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { emailDomain, isFreeEmailDomain, normalizeEmail, normalizePhone, normalizeWebsite, normalizeWhitespace } from '../src/normalize'
+import { emailDomain, isFreeEmailDomain, normalizeEmail, normalizePhone, normalizeWebsite, normalizeWhitespace, websiteForStorage, WEBSITE_MAX_LENGTH } from '../src/normalize'
 
 describe('normalizeEmail', () => {
   it('trims and lower-cases but keeps plus-addressing', () => {
@@ -49,5 +49,22 @@ describe('email helpers', () => {
   })
   it('collapses whitespace', () => {
     expect(normalizeWhitespace('  a \n\t b  ')).toBe('a b')
+  })
+})
+
+describe('websiteForStorage', () => {
+  it('stores the normalized URL when it fits', () => {
+    expect(websiteForStorage('Example.com/')).toBe('https://example.com')
+    expect(websiteForStorage(null)).toBeNull()
+  })
+
+  it('keeps the input when normalizing would exceed the column limit (security review regression)', () => {
+    const long = `${'a'.repeat(WEBSITE_MAX_LENGTH - 10)}.example`
+    expect(long.length).toBe(WEBSITE_MAX_LENGTH - 2)
+    expect(websiteForStorage(long)).toBe(long)
+  })
+
+  it('keeps unparseable input as entered', () => {
+    expect(websiteForStorage('not a url')).toBe('not a url')
   })
 })

@@ -129,6 +129,12 @@ export function validateWorkflow(workflow, rawText = JSON.stringify(workflow)) {
   const responders = nodes.filter((n) => n.type === 'n8n-nodes-base.respondToWebhook')
   if (webhooks.length !== 1) webhookProblems.push(`Expected exactly one Webhook node, found ${webhooks.length}`)
   for (const hook of webhooks) {
+    // The webhook creates leads and spends AI quota, so it must never be callable anonymously.
+    if (!hook.parameters?.authentication || hook.parameters.authentication === 'none') {
+      webhookProblems.push(`Webhook "${hook.name}" has no authentication; use Header Auth`)
+    } else if (Object.keys(hook.credentials ?? {}).length === 0) {
+      webhookProblems.push(`Webhook "${hook.name}" uses ${hook.parameters.authentication} but references no credential`)
+    }
     if (hook.parameters?.responseMode === 'responseNode' && responders.length === 0) {
       webhookProblems.push('Webhook uses responseMode "responseNode" but there is no Respond to Webhook node')
     }

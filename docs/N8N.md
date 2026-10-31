@@ -2,7 +2,7 @@
 
 `n8n/leadpilot-lead-qualification.workflow.json` is an importable n8n v2.x (Community Edition) workflow that runs the same lead pipeline as the LeadPilot Worker: validate → deduplicate → Gemini classification → score reconciliation → persist → activity log → Slack alert → (optional) follow-up email → execution record.
 
-**It runs only while your own n8n instance is running.** The public LeadPilot app does not depend on it; the Worker implements the full pipeline itself. The workflow file was built and statically validated in this repo (see [Verification](#verification)), but it has not been executed inside a live n8n instance as part of this repo's checks.
+**It runs only while your own n8n instance is running.** The public LeadPilot app does not depend on it; the Worker implements the full pipeline itself. The workflow file was built and statically validated in this repo (see [Verification](#verification)), and it was executed in a live local n8n 2.45.7 with AI disabled (see [Local run](#local-run-2026-10-31)). The Gemini and Slack branches have not yet run inside n8n.
 
 ## What it does
 
@@ -96,3 +96,17 @@ node n8n/build-workflow.mjs                                            # regener
 node n8n/validate-workflow.mjs n8n/leadpilot-lead-qualification.workflow.json
 node --test n8n/test/                                                  # runs Code nodes against fixtures, checks parity with packages/shared
 ```
+
+## Local run (2026-10-31)
+
+Executed in the official `n8nio/n8n:2.45.7` Docker image against local PostgreSQL + PostgREST (a small test proxy served `/rest/v1` and mapped the `apikey` header to a Bearer token, as the Supabase gateway does). The workflow and credentials were imported with `n8n import:workflow` / `n8n import:credentials`, then activated, and called on the production webhook URL. `AI_ENABLED=false`, no Slack URL.
+
+| Request | Response | Database result |
+|---|---|---|
+| New lead | 200 `duplicate:false`, `qualificationStatus:"skipped"` | lead created (`source n8n`, `submission_count 1`), `lead_created` activity, execution `engine n8n` succeeded |
+| Same email again | 200 `duplicate:true` | `submission_count 2`, `duplicate_submission` activity, second execution |
+| Honeypot filled | 202 `{"accepted":true}` | nothing stored |
+| Invalid email / short message | 422 with field errors | nothing stored |
+| Missing `X-LeadPilot-Token` | 403 | nothing stored |
+
+Execution steps recorded: validate ✓, deduplicate ✓, ai_classify skipped, persist ✓, notify_slack skipped, email_followup skipped. **Not yet exercised inside n8n:** the Gemini call, the quota reservation with AI enabled, Slack delivery, and the email node.

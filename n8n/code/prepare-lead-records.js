@@ -25,7 +25,7 @@ if (!write.ok) {
 const leadSaved = row !== null
 const leadId = leadSaved ? row.id : null
 const ai = scored.ai
-const qualificationStatus = ai ? ai.qualificationStatus : 'failed'
+const qualificationStatus = ai ? ai.qualificationStatus : scored.aiSkipped ? 'skipped' : 'failed'
 
 const activities = []
 const qualification =
@@ -63,7 +63,8 @@ if (leadSaved) {
         }
       : { ...base, type: 'lead_created', body: 'Received via n8n webhook', metadata: { source: ctx.lead.submittedSource, ...origin } },
   )
-  activities.push(
+  // Like the Worker, AI being switched off is not a failure and logs no qualification activity.
+  if (!scored.aiSkipped) activities.push(
     ai
       ? {
           ...base,

@@ -65,7 +65,7 @@ export function LeadDetailPage() {
           title="Lead not found"
           description="It may have been deleted, or it belongs to a different workspace."
           action={
-            <Button variant="outline" render={<Link to={link('/leads')} />}>
+            <Button variant="outline" render={<Link to={link('/leads')} />} nativeButton={false}>
               <ArrowLeft aria-hidden="true" />
               Back to leads
             </Button>
@@ -352,7 +352,7 @@ function WorkflowActivity({ leadId }: { leadId: string }) {
           </ul>
         )}
         <div className="mt-3 border-t pt-3">
-          <Button variant="link" size="sm" className="h-auto px-0" render={<Link to={link('/workflows')} />}>
+          <Button variant="link" size="sm" className="h-auto px-0" render={<Link to={link('/workflows')} />} nativeButton={false}>
             <Workflow aria-hidden="true" />
             View all in Workflows
           </Button>

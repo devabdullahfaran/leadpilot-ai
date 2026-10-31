@@ -92,6 +92,17 @@ describe('validator', () => {
     assert.match(errors, /"Gemini Classify" calls Gemini without Header Auth/)
   })
 
+  test('rejects an unauthenticated webhook (security review regression)', () => {
+    const open = errorsFor((wf) => {
+      wf.nodes.find((x) => x.type === 'n8n-nodes-base.webhook').parameters.authentication = 'none'
+    })
+    assert.match(open, /Webhook "Lead Intake Webhook" has no authentication/)
+    const noCredential = errorsFor((wf) => {
+      delete wf.nodes.find((x) => x.type === 'n8n-nodes-base.webhook').credentials
+    })
+    assert.match(noCredential, /references no credential/)
+  })
+
   test('detects broken connections, duplicate names, bad versions and code syntax errors', () => {
     const errors = errorsFor((wf) => {
       wf.connections['Parse & Score'].main[0].push({ node: 'Ghost', type: 'main', index: 0 })

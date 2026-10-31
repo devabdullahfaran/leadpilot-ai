@@ -49,9 +49,19 @@ export function fromPostgrest(error: PostgrestErrorLike, context: string): ApiEr
     case '23503':
       return new ApiError(422, 'validation_error', 'A referenced record does not exist')
     case '23514':
+      // Messages raised by our own triggers (e.g. "owner must be a member of the lead's workspace") are
+      // written for users; PostgreSQL's built-in check messages name relations and constraints.
+      log('warn', 'database_validation_error', { context, code: error.code, message: error.message })
+      return new ApiError(
+        422,
+        'validation_error',
+        /violates check constraint|relation "/.test(error.message) ? 'A value is outside the allowed range' : error.message,
+      )
     case '22P02':
     case '22001':
-      return new ApiError(422, 'validation_error', error.message)
+      // Built-in messages echo the rejected input and column types.
+      log('warn', 'database_validation_error', { context, code: error.code, message: error.message })
+      return new ApiError(422, 'validation_error', 'A value has an invalid format or length')
     case '42501':
       return forbidden()
     default:

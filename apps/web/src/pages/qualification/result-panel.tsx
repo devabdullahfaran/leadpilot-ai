@@ -119,7 +119,7 @@ export function QualifyResultPanel({ result, settings }: ResultPanelProps) {
             {execution.errorMessage}
           </p>
         ) : null}
-        <Button variant="link" size="sm" className="h-auto px-0" render={<Link to={link(`/workflows?execution=${execution.id}`)} />}>
+        <Button variant="link" size="sm" className="h-auto px-0" render={<Link to={link(`/workflows?execution=${execution.id}`)} />} nativeButton={false}>
           View execution
         </Button>
       </div>
@@ -153,7 +153,7 @@ export function QualifyErrorPanel({ error }: { error: unknown }) {
         {e.retryAfter ? ` Try again in ${e.retryAfter} s.` : null}
       </p>
       {e.fixPath ? (
-        <Button variant="outline" size="sm" render={<Link to={link(e.fixPath)} />}>
+        <Button variant="outline" size="sm" render={<Link to={link(e.fixPath)} />} nativeButton={false}>
           {e.fixLabel}
         </Button>
       ) : null}

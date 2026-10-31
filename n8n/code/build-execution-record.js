@@ -49,7 +49,7 @@ if (!p) {
   const msg = `Score ${p.ai.score} (${p.ai.priority}), category ${p.ai.category}${review}`
   steps.push(step('ai_classify', 'succeeded', g.marks.aiRequestBuiltAt, p.marks.aiCheckedAt, msg))
 } else {
-  steps.push(step('ai_classify', 'failed', g.marks.aiRequestBuiltAt, p.marks.aiCheckedAt, p.aiError.message))
+  steps.push(step('ai_classify', p.aiSkipped ? 'skipped' : 'failed', g.marks.aiRequestBuiltAt, p.marks.aiCheckedAt, p.aiError.message))
 }
 
 // persist: lead write + activity log + qualification history
@@ -70,7 +70,7 @@ if (!p) {
   if (persistIssues.length > 0) {
     steps.push(step('persist', 'failed', p.marks.scoredAt, end, `${saved}; ${persistIssues.join('; ')}`))
   } else {
-    const suffix = r.aiOk ? ' and saved qualification' : ' with qualification status "failed"'
+    const suffix = r.aiOk ? ' and saved qualification' : ` with qualification status "${r.qualificationStatus}"`
     steps.push(step('persist', 'succeeded', p.marks.scoredAt, end, `${saved}${suffix}`))
   }
 }
@@ -121,7 +121,7 @@ if (!g.lookupOk) {
   httpStatus = 500
   const aiNote = p.aiOk ? '' : ` AI qualification also failed: ${p.aiError.message}`
   error = { code: 'internal_error', message: `${r.leadError}${aiNote}` }
-} else if (!p.aiOk) {
+} else if (!p.aiOk && !p.aiSkipped) {
   // Same as the Worker's intake: the lead is captured, so the run is 'partial' with the AI error code. The
   // webhook still reports the failure (502, or 429 for provider quota) so callers can see AI did not run.
   status = 'partial'
@@ -131,6 +131,7 @@ if (!g.lookupOk) {
     code: p.aiError.apiCode,
     message: `AI qualification failed: ${p.aiError.apiMessage} The lead was saved with qualification status "failed".`,
   }
+  if (p.aiErrorDetails) responseError.quota = p.aiErrorDetails
 } else {
   if (persistIssues.length > 0) partialErrors.push({ code: 'internal_error', message: `Lead saved, but ${persistIssues.join('; ')}` })
   if (s && s.slack.status === 'failed') partialErrors.push({ code: 'integration_failed', message: `Slack notification failed: ${s.slack.message}` })

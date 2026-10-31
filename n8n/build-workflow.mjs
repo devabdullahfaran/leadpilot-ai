@@ -48,10 +48,16 @@ const SUPABASE_CREDENTIALS = {
 const GEMINI_CREDENTIALS = {
   httpHeaderAuth: { id: 'REPLACE_ON_IMPORT_GEMINI', name: 'LeadPilot Gemini API key (x-goog-api-key header)' },
 }
+// The public webhook is protected like the Worker's intake key: n8n rejects requests without this header.
+const WEBHOOK_CREDENTIALS = {
+  httpHeaderAuth: { id: 'REPLACE_ON_IMPORT_WEBHOOK', name: 'LeadPilot webhook token (X-LeadPilot-Token header)' },
+}
 const SMTP_CREDENTIALS = { smtp: { id: 'REPLACE_ON_IMPORT_SMTP', name: 'LeadPilot SMTP (optional follow-up email)' } }
 
 const CONFIG = "$('Validate & Normalize').first().json.config"
 const LEAD = "$('Validate & Normalize').first().json.lead"
+const REQUEST = "$('Build Gemini Request').first().json"
+const SCORED = "$('Parse & Score').first().json"
 const HTTP_RESPONSE_OPTIONS = { response: { response: { neverError: true, fullResponse: true } } }
 
 function base(name, type, position, parameters, extra = {}) {
@@ -119,7 +125,7 @@ const NOTE_OVERVIEW = `## LeadPilot AI · lead qualification (n8n)
 Self-hosted twin of the LeadPilot Worker pipeline: **validate → deduplicate → Gemini → persist → Slack → execution log**. Writes the same tables and contracts; every run is recorded in \`workflow_executions\` with \`engine = 'n8n'\` and shows up on LeadPilot's Workflows page.
 
 **n8n environment** (restart n8n after setting):
-\`N8N_BLOCK_ENV_ACCESS_IN_NODE=false\` · \`LEADPILOT_WORKSPACE_ID\` · \`SUPABASE_URL\` · \`GEMINI_MODEL\` (default gemini-3.5-flash-lite) · \`SLACK_WEBHOOK_URL\` (optional) · \`FOLLOWUP_FROM_EMAIL\` (optional)
+\`N8N_BLOCK_ENV_ACCESS_IN_NODE=false\` · \`LEADPILOT_WORKSPACE_ID\` · \`SUPABASE_URL\` · \`GEMINI_MODEL\` (default gemini-3.5-flash-lite) · \`AI_ENABLED\` (kill switch; \`false\` skips Gemini) · \`AI_DAILY_LIMIT_PER_WORKSPACE\` / \`AI_DAILY_LIMIT_GLOBAL\` (default 25 / 150, shared with the Worker via reserve_ai_call) · \`SLACK_WEBHOOK_URL\` (optional) · \`FOLLOWUP_FROM_EMAIL\` (optional)
 
 Test: \`n8n/send-test-lead.sh\` → \`/webhook-test/leadpilot-intake\`. Full guide: \`docs/N8N.md\`.`
 
@@ -128,12 +134,15 @@ const NOTE_CREDENTIALS = `## Credentials (create in n8n, never in this file)
 
 **Gemini** · Header Auth · Name \`x-goog-api-key\` · Value: your Gemini API key.
 
+**Webhook** · Header Auth · Name \`X-LeadPilot-Token\` · Value: a long random token. Required: callers send it on every request.
+
 **SMTP** · only for the optional follow-up email.
 
 The secret key bypasses Row Level Security: restrict who can open this n8n instance.`
 
 const NOTE_FAILURES = `## Failure handling (same outcomes as the Worker)
 * Gemini: 20 s timeout, Retry On Fail ×3 (2 s apart) for timeouts/network errors. HTTP errors (429/5xx/4xx) are returned to **Parse & Score**, which classifies them.
+* Gemini only runs when \`AI_ENABLED\` is not \`false\` **and** \`reserve_ai_call\` grants a reservation (same daily limits as the Worker; fails closed). Disabled → lead saved as \`skipped\`; limit reached → \`429\`.
 * AI failure → the lead is still saved with \`qualification_status = failed\` + error, execution **partial**, webhook **502** (\`429\` for provider quota).
 * Lookup/save failure → execution **failed**, webhook **500**.
 * Slack / email failure never fails the run → execution **partial**.`
@@ -151,8 +160,8 @@ export function buildWorkflow() {
       'Lead Intake Webhook',
       'n8n-nodes-base.webhook',
       [0, 300],
-      { httpMethod: 'POST', path: 'leadpilot-intake', authentication: 'none', responseMode: 'responseNode', options: {} },
-      { webhookId: stableId('webhook:leadpilot-intake') },
+      { httpMethod: 'POST', path: 'leadpilot-intake', authentication: 'headerAuth', responseMode: 'responseNode', options: {} },
+      { webhookId: stableId('webhook:leadpilot-intake'), credentials: WEBHOOK_CREDENTIALS },
     ),
     codeNode('Validate & Normalize', [220, 300], 'validate-normalize.js'),
     ifNode('Valid Lead?', [440, 300], '={{ $json.valid }}'),
@@ -169,18 +178,29 @@ export function buildWorkflow() {
     }),
     codeNode('Build Gemini Request', [880, 300], 'build-gemini-request.js'),
     ifNode('Lookup OK?', [1100, 300], '={{ $json.lookupOk }}'),
+    ifNode('AI Enabled?', [1210, 300], `={{ ${CONFIG}.aiEnabled === true }}`),
+    supabaseNode('Reserve AI Quota', [1320, 300], {
+      method: 'POST',
+      table: 'rpc/reserve_ai_call',
+      body: `({ p_workspace_id: ${CONFIG}.workspaceId, p_user_id: null, p_lead_id: $json.existingLead ? $json.existingLead.id : null, p_model: $json.model, p_workspace_limit: ${CONFIG}.aiDailyLimitPerWorkspace, p_global_limit: ${CONFIG}.aiDailyLimitGlobal })`,
+    }),
+    ifNode(
+      'AI Allowed?',
+      [1430, 300],
+      '={{ $json.statusCode === 200 && Array.isArray($json.body) && Boolean($json.body[0]) && $json.body[0].allowed === true && Boolean($json.body[0].reservation_id) }}',
+    ),
     base(
       'Gemini Classify',
       'n8n-nodes-base.httpRequest',
-      [1320, 300],
+      [1540, 300],
       {
         method: 'POST',
-        url: '=https://generativelanguage.googleapis.com/v1beta/models/{{ $json.model }}:generateContent',
+        url: `=https://generativelanguage.googleapis.com/v1beta/models/{{ ${REQUEST}.model }}:generateContent`,
         authentication: 'genericCredentialType',
         genericAuthType: 'httpHeaderAuth',
         sendBody: true,
         specifyBody: 'json',
-        jsonBody: '={{ JSON.stringify($json.geminiRequest) }}',
+        jsonBody: `={{ JSON.stringify(${REQUEST}.geminiRequest) }}`,
         options: { timeout: 20000, ...HTTP_RESPONSE_OPTIONS },
       },
       {
@@ -191,25 +211,36 @@ export function buildWorkflow() {
         onError: 'continueRegularOutput',
       },
     ),
-    codeNode('Parse & Score', [1540, 300], 'parse-and-score.js'),
-    ifNode('Duplicate?', [1760, 300], '={{ $json.duplicate }}'),
+    codeNode('Parse & Score', [1650, 300], 'parse-and-score.js'),
+    ifNode('AI Reserved?', [1700, 420], '={{ Boolean($json.reservationId) }}'),
+    supabaseNode('Finalize AI Usage', [1730, 540], {
+      method: 'PATCH',
+      table: 'ai_usage_events',
+      query: [
+        ['id', `=eq.{{ ${SCORED}.reservationId }}`],
+        ['workspace_id', `=eq.{{ ${CONFIG}.workspaceId }}`],
+      ],
+      prefer: 'return=minimal',
+      body: `${SCORED}.usagePatch`,
+    }),
+    ifNode('Duplicate?', [1760, 300], `={{ ${SCORED}.duplicate }}`),
     supabaseNode('Update Lead', [1980, 180], {
       method: 'PATCH',
       table: 'leads',
       query: [
-        ['id', '=eq.{{ $json.existingLeadId }}'],
+        ['id', `=eq.{{ ${SCORED}.existingLeadId }}`],
         ['workspace_id', `=eq.{{ ${CONFIG}.workspaceId }}`],
         ['select', 'id,submission_count'],
       ],
       prefer: 'return=representation',
-      body: '$json.leadPatch',
+      body: `${SCORED}.leadPatch`,
     }),
     supabaseNode('Create Lead', [1980, 420], {
       method: 'POST',
       table: 'leads',
       query: [['select', 'id,submission_count']],
       prefer: 'return=representation',
-      body: '$json.leadInsert',
+      body: `${SCORED}.leadInsert`,
     }),
     codeNode('Prepare Lead Records', [2200, 300], 'prepare-lead-records.js'),
     ifNode('Lead Saved?', [2420, 300], '={{ $json.leadSaved }}'),
@@ -282,10 +313,18 @@ export function buildWorkflow() {
   connect('Valid Lead?', 'Respond Rejected', 1)
   connect('Find Existing Lead', 'Build Gemini Request')
   connect('Build Gemini Request', 'Lookup OK?')
-  connect('Lookup OK?', 'Gemini Classify', 0)
+  connect('Lookup OK?', 'AI Enabled?', 0)
   connect('Lookup OK?', 'Build Execution Record', 1)
+  connect('AI Enabled?', 'Reserve AI Quota', 0)
+  connect('AI Enabled?', 'Parse & Score', 1)
+  connect('Reserve AI Quota', 'AI Allowed?')
+  connect('AI Allowed?', 'Gemini Classify', 0)
+  connect('AI Allowed?', 'Parse & Score', 1)
   connect('Gemini Classify', 'Parse & Score')
-  connect('Parse & Score', 'Duplicate?')
+  connect('Parse & Score', 'AI Reserved?')
+  connect('AI Reserved?', 'Finalize AI Usage', 0)
+  connect('AI Reserved?', 'Duplicate?', 1)
+  connect('Finalize AI Usage', 'Duplicate?')
   connect('Duplicate?', 'Update Lead', 0)
   connect('Duplicate?', 'Create Lead', 1)
   connect('Update Lead', 'Prepare Lead Records')

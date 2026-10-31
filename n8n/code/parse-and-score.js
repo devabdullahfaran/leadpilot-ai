@@ -212,6 +212,8 @@ function readGemini(item) {
 
 // Same mapping as apiErrorForGemini in apps/api/src/services/qualification.ts.
 function apiError(code, message) {
+  if (code === 'ai_disabled') return { apiCode: 'ai_disabled', httpStatus: 503, apiMessage: message }
+  if (code === 'quota_exceeded') return { apiCode: 'ai_quota_exceeded', httpStatus: 429, apiMessage: message }
   if (code === 'rate_limited') {
     return { apiCode: 'ai_quota_exceeded', httpStatus: 429, apiMessage: `The AI provider's quota or rate limit was reached. ${message}` }
   }
@@ -222,7 +224,45 @@ function apiError(code, message) {
 // ---- Main -----------------------------------------------------------------------------------------------
 const ctx = $('Validate & Normalize').first().json
 const req = $('Build Gemini Request').first().json
-const gemini = readGemini($input.first().json)
+function executed(name) {
+  try {
+    return $(name).isExecuted
+  } catch {
+    return false
+  }
+}
+
+// Seconds until the daily quota window (UTC midnight) resets, like the Worker's ai_quota_exceeded details.
+function secondsUntilUtcMidnight(now) {
+  const d = new Date(now)
+  return Math.max(1, Math.ceil((Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1) - now) / 1000))
+}
+
+// Gate before Gemini (same order as qualifyLead in apps/api/src/services/qualification.ts): kill switch,
+// then the reserve_ai_call quota. Gemini only runs when a reservation was granted.
+let gate = null
+let reservationId = null
+if (!ctx.config.aiEnabled) {
+  gate = { skipped: true, code: 'ai_disabled', message: 'AI qualification is disabled on this n8n instance (AI_ENABLED=false)' }
+} else {
+  const reserve = executed('Reserve AI Quota') ? httpResult($('Reserve AI Quota').first().json) : null
+  const row = reserve && reserve.ok && Array.isArray(reserve.body) ? reserve.body[0] : null
+  if (!reserve || !reserve.ok || !row) {
+    // Fail closed: without a reservation Gemini is never called.
+    gate = { code: 'quota_check_failed', message: `AI quota could not be checked, so Gemini was not called (${reserve ? reserve.error || 'no result' : 'not run'}).` }
+  } else if (!row.allowed || !row.reservation_id) {
+    const scope = row.reason === 'global_daily_limit' ? 'The daily AI limit for this server' : "This workspace's daily AI limit"
+    gate = {
+      code: 'quota_exceeded',
+      message: `${scope} has been reached. It resets at 00:00 UTC.`,
+      details: { reason: row.reason, workspaceUsed: row.workspace_used, globalUsed: row.global_used, retryAfterSeconds: secondsUntilUtcMidnight(aiCheckedAt) },
+    }
+  } else {
+    reservationId = row.reservation_id
+  }
+}
+
+const gemini = gate ? { ok: false, code: gate.code, message: gate.message } : readGemini($input.first().json)
 
 let ai = null
 let aiError = null
@@ -272,7 +312,26 @@ const aiFields = ai
       qualification_error: null,
       last_qualified_at: new Date(aiCheckedAt).toISOString(),
     }
-  : { qualification_status: 'failed', qualification_error: aiError.apiMessage }
+  : { qualification_status: gate && gate.skipped ? 'skipped' : 'failed', qualification_error: aiError.apiMessage }
+
+// Finalizes the pending ai_usage_events row exactly like the Worker (usageStatusFor in qualification.ts).
+function usageStatus() {
+  if (gemini.ok && ai) return 'success'
+  const code = gemini.ok ? 'invalid_response' : gemini.code
+  if (code === 'invalid_response' || code === 'blocked') return 'invalid_response'
+  if (code === 'timeout') return 'timeout'
+  return 'error'
+}
+const tokens = gemini.usage ?? null
+const usagePatch = reservationId
+  ? {
+      status: usageStatus(),
+      latency_ms: Math.max(0, aiCheckedAt - (req.marks.aiRequestBuiltAt ?? aiCheckedAt)),
+      prompt_tokens: tokens ? tokens.promptTokens : null,
+      output_tokens: tokens ? tokens.outputTokens : null,
+      error_code: ai ? null : (gemini.ok ? 'invalid_response' : gemini.code),
+    }
+  : null
 
 const lead = ctx.lead
 const leadInsert = {
@@ -299,8 +358,12 @@ return [
       duplicate: req.duplicate,
       existingLeadId: req.existingLead ? req.existingLead.id : null,
       aiOk: ai !== null,
+      aiSkipped: Boolean(gate && gate.skipped),
       ai,
       aiError,
+      aiErrorDetails: gate && gate.details ? gate.details : null,
+      reservationId,
+      usagePatch,
       usage: gemini.usage ?? null,
       leadInsert,
       leadPatch,

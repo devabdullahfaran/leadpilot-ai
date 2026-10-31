@@ -111,7 +111,7 @@ export function PipelineSection() {
             <AlertTitle>{UNAVAILABLE_COPY[availability.reason].title}</AlertTitle>
             <AlertDescription className="space-y-2">
               <p>{UNAVAILABLE_COPY[availability.reason].body}</p>
-              <Button variant="outline" size="sm" render={<Link to={link(UNAVAILABLE_COPY[availability.reason].path)} />}>
+              <Button variant="outline" size="sm" render={<Link to={link(UNAVAILABLE_COPY[availability.reason].path)} />} nativeButton={false}>
                 {UNAVAILABLE_COPY[availability.reason].cta}
               </Button>
             </AlertDescription>

@@ -88,7 +88,7 @@ export function QueueSection({ settings }: { settings?: AiSettings }) {
 function LeadsLink({ filter }: { filter?: QueueTab }) {
   const link = useAppLink()
   return (
-    <Button variant="link" size="sm" className="h-auto px-0" render={<Link to={link(filter ? `/leads?qualificationStatus=${filter}` : '/leads')} />}>
+    <Button variant="link" size="sm" className="h-auto px-0" render={<Link to={link(filter ? `/leads?qualificationStatus=${filter}` : '/leads')} />} nativeButton={false}>
       {filter ? 'See all in Leads' : 'Go to Leads'}
     </Button>
   )
@@ -161,7 +161,7 @@ function QueueTable({ leads, settings }: { leads: Lead[]; settings?: AiSettings 
                       {runningId === lead.id ? 'Running…' : 'Run AI'}
                     </Button>
                   </ReadOnlyGuard>
-                  <Button size="sm" variant="ghost" render={<Link to={link(`/leads/${lead.id}`)} />} aria-label={`Open ${lead.name}`}>
+                  <Button size="sm" variant="ghost" render={<Link to={link(`/leads/${lead.id}`)} />} nativeButton={false} aria-label={`Open ${lead.name}`}>
                     Open
                   </Button>
                 </div>

@@ -35,11 +35,14 @@ async function upstream(body = leads.valid, lookupBody = []) {
   return { v, g }
 }
 
-async function parseAndScore(geminiItem, { lookupBody = [] } = {}) {
+const RESERVATION_ID = 'dddddddd-0000-4000-8000-000000000004'
+const RESERVED = { statusCode: 200, headers: {}, body: [{ reservation_id: RESERVATION_ID, allowed: true, reason: null, workspace_used: 1, global_used: 1 }] }
+
+async function parseAndScore(geminiItem, { lookupBody = [], reserve = RESERVED } = {}) {
   const { v, g } = await upstream(leads.valid, lookupBody)
   return runCodeFile('parse-and-score.js', {
     input: geminiItem,
-    nodes: { 'Validate & Normalize': v, 'Build Gemini Request': g },
+    nodes: { 'Validate & Normalize': v, 'Build Gemini Request': g, 'Reserve AI Quota': reserve },
   })
 }
 
@@ -66,6 +69,9 @@ describe('Validate & Normalize', () => {
       workspaceId: VALID_ENV.LEADPILOT_WORKSPACE_ID,
       supabaseUrl: 'https://example-project.supabase.co',
       geminiModel: 'gemini-3.5-flash-lite',
+      aiEnabled: true,
+      aiDailyLimitPerWorkspace: 25,
+      aiDailyLimitGlobal: 150,
       slackConfigured: true,
       slackSkipReason: null,
       followUpFromConfigured: true,
@@ -312,7 +318,7 @@ describe('Parse & Score', () => {
     })
     const out = await runCodeFile('parse-and-score.js', {
       input: geminiOk(aiOutputs.fenced),
-      nodes: { 'Validate & Normalize': v, 'Build Gemini Request': g },
+      nodes: { 'Validate & Normalize': v, 'Build Gemini Request': g, 'Reserve AI Quota': RESERVED },
     })
     assert.equal(out.duplicate, true)
     assert.equal(out.existingLeadId, 'aaaaaaaa-0000-4000-8000-000000000001')
@@ -333,6 +339,8 @@ const STEP_KEYS = ['validate', 'deduplicate', 'ai_classify', 'persist', 'notify_
 function mocks(overrides = {}) {
   return {
     'Find Existing Lead': { statusCode: 200, headers: {}, body: [] },
+    'Reserve AI Quota': RESERVED,
+    'Finalize AI Usage': { statusCode: 204, headers: {}, body: '' },
     'Gemini Classify': geminiOk(aiOutputs.fenced),
     'Create Lead': { statusCode: 201, headers: {}, body: [{ id: LEAD_ID, submission_count: 1 }] },
     'Update Lead': { statusCode: 200, headers: {}, body: [{ id: LEAD_ID, submission_count: 3 }] },
@@ -557,5 +565,75 @@ describe('Build Execution Record (full workflow simulation)', () => {
       assert.equal(run.response.status, status)
       assert.deepEqual(run.executed, ['Lead Intake Webhook', 'Validate & Normalize', 'Valid Lead?', 'Respond Rejected'])
     }
+  })
+})
+
+// ---------------------------------------------------------------------------------------------------------
+// Security review regressions: the n8n path honours the Worker's kill switch and daily AI quota, and the
+// webhook cannot be called anonymously.
+describe('AI cost protection parity with the Worker', () => {
+  test('Parse & Score fails closed when the quota reservation did not run or failed', async () => {
+    const missing = await runCodeFile('parse-and-score.js', {
+      input: geminiOk(aiOutputs.fenced),
+      nodes: { 'Validate & Normalize': (await upstream()).v, 'Build Gemini Request': (await upstream()).g },
+    })
+    assert.equal(missing.aiOk, false)
+    assert.equal(missing.reservationId, null)
+    const failed = await parseAndScore(geminiOk(aiOutputs.fenced), { reserve: { statusCode: 401, headers: {}, body: { message: 'bad key' } } })
+    assert.equal(failed.aiOk, false)
+    assert.equal(failed.leadInsert.qualification_status, 'failed')
+  })
+
+  test('AI_ENABLED=false skips Gemini and the quota, saves the lead as skipped and succeeds', async () => {
+    const run = await simulateWorkflow({ body: leads.valid, env: { ...VALID_ENV, AI_ENABLED: 'false' }, http: mocks() })
+    assert.equal(run.executed.includes('Reserve AI Quota'), false)
+    assert.equal(run.executed.includes('Gemini Classify'), false)
+    assert.equal(run.requests['Create Lead'].body.qualification_status, 'skipped')
+    const record = run.runData.get('Build Execution Record')
+    assert.equal(record.status, 'succeeded')
+    assert.equal(stepMap(record).ai_classify.status, 'skipped')
+    assert.equal(run.response.status, 200)
+    assert.equal(run.response.body.qualificationStatus, 'skipped')
+  })
+
+  test('a quota rejection never calls Gemini and answers 429 ai_quota_exceeded', async () => {
+    const run = await simulateWorkflow({
+      body: leads.valid,
+      http: mocks({
+        'Reserve AI Quota': { statusCode: 200, headers: {}, body: [{ reservation_id: null, allowed: false, reason: 'workspace_daily_limit', workspace_used: 25, global_used: 30 }] },
+      }),
+    })
+    assert.equal(run.executed.includes('Gemini Classify'), false)
+    assert.equal(run.executed.includes('Finalize AI Usage'), false)
+    assert.equal(run.requests['Create Lead'].body.qualification_status, 'failed')
+    assert.equal(run.response.status, 429)
+    assert.equal(run.response.body.error.code, 'ai_quota_exceeded')
+    assert.equal(run.response.body.error.quota.reason, 'workspace_daily_limit')
+  })
+
+  test('the reservation uses the configured limits and is finalized with the outcome', async () => {
+    const run = await simulateWorkflow({ body: leads.valid, env: { ...VALID_ENV, AI_DAILY_LIMIT_PER_WORKSPACE: '7' }, http: mocks() })
+    const reserve = run.requests['Reserve AI Quota']
+    assert.match(reserve.url, /\/rest\/v1\/rpc\/reserve_ai_call$/)
+    assert.equal(reserve.body.p_workspace_limit, 7)
+    assert.equal(reserve.body.p_global_limit, 150)
+    assert.equal(reserve.body.p_workspace_id, VALID_ENV.LEADPILOT_WORKSPACE_ID)
+    const finalize = run.requests['Finalize AI Usage']
+    assert.equal(finalize.method, 'PATCH')
+    assert.equal(finalize.query.id, `eq.${RESERVATION_ID}`)
+    assert.equal(finalize.body.status, 'success')
+
+    const failed = await simulateWorkflow({
+      body: leads.valid,
+      http: mocks({ 'Gemini Classify': { statusCode: 503, body: { error: { message: 'overloaded' } } } }),
+    })
+    assert.equal(failed.requests['Finalize AI Usage'].body.status, 'error')
+    assert.equal(failed.requests['Finalize AI Usage'].body.error_code, 'unavailable')
+  })
+
+  test('an invalid AI limit is a configuration error', async () => {
+    const out = await validate(leads.valid, { ...VALID_ENV, AI_DAILY_LIMIT_GLOBAL: '-1' })
+    assert.equal(out.valid, false)
+    assert.ok(out.configProblems.some((p) => p.includes('AI_DAILY_LIMIT_GLOBAL')))
   })
 })

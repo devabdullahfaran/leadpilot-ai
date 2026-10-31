@@ -54,7 +54,11 @@ async function n8nScore(output) {
   const text = typeof output === 'string' ? output : JSON.stringify(output)
   return runCodeFile('parse-and-score.js', {
     input: { statusCode: 200, body: { candidates: [{ content: { parts: [{ text }] }, finishReason: 'STOP' }] } },
-    nodes: { 'Validate & Normalize': v, 'Build Gemini Request': g },
+    nodes: {
+      'Validate & Normalize': v,
+      'Build Gemini Request': g,
+      'Reserve AI Quota': { statusCode: 200, body: [{ reservation_id: 'dddddddd-0000-4000-8000-000000000004', allowed: true }] },
+    },
   })
 }
 

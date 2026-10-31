@@ -5,9 +5,9 @@ import {
   leadUpdateSchema,
   normalizeEmail,
   normalizePhone,
-  normalizeWebsite,
   noteCreateSchema,
   qualificationOverrideSchema,
+  websiteForStorage,
   type LeadUpdate,
 } from '@leadpilot/shared'
 import { Hono } from 'hono'
@@ -48,7 +48,7 @@ const UPDATABLE: Record<keyof LeadUpdate, keyof LeadRow> = {
   ownerId: 'owner_id',
 }
 
-const cleanWebsite = (website: string | null | undefined) => (website ? (normalizeWebsite(website) ?? website) : null)
+const cleanWebsite = (website: string | null | undefined) => websiteForStorage(website)
 
 async function findLeadIdByEmail(scope: Scope, email: string, excludeId?: string): Promise<string | null> {
   let query = scope.db

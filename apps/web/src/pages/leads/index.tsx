@@ -254,7 +254,7 @@ export function LeadsPage() {
             action={
               <>
                 {newLeadButton}
-                <Button variant="outline" render={<Link to={link('/integrations')} />}>
+                <Button variant="outline" render={<Link to={link('/integrations')} />} nativeButton={false}>
                   Set up intake
                 </Button>
               </>

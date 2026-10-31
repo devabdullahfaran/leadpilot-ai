@@ -264,7 +264,7 @@ function LeadVolumeCard({ className }: { className?: string }) {
             <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} minTickGap={32} tickFormatter={(v: string) => formatShortDate(v)} />
             <YAxis allowDecimals={false} tickLine={false} axisLine={false} width={28} />
             <ChartTooltip content={<ChartTooltipContent indicator="line" labelFormatter={(_, p) => formatShortDate(String(p?.[0]?.payload?.date ?? ''))} />} />
-            <Area dataKey="count" type="monotone" stroke="var(--color-count)" fill="var(--color-count)" fillOpacity={0.12} strokeWidth={2} />
+            <Area dataKey="count" type="linear" stroke="var(--color-count)" fill="var(--color-count)" fillOpacity={0.12} strokeWidth={2} />
           </AreaChart>
         </ChartContainer>
       )}

@@ -14,7 +14,7 @@
   "scripts": {
     "dev:web": "npm run dev -w @leadpilot/web",
     "dev:api": "npm run dev -w @leadpilot/api",
-    "build": "npm run build -w @leadpilot/shared && npm run build -w @leadpilot/web",
+    "build": "npm run build -w @leadpilot/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
@@ -24,7 +24,8 @@
     "test:db": "npm run test:db -w @leadpilot/api",
     "test:n8n": "node n8n/validate-workflow.mjs n8n/leadpilot-lead-qualification.workflow.json && node --test n8n/test/",
     "db:reset": "bash scripts/db-reset-local.sh",
-    "db:seed": "node --experimental-strip-types scripts/generate-seed.ts"
+    "db:seed": "node --experimental-strip-types scripts/generate-seed.ts",
+    "dev:local": "node scripts/local-stack.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1"

@@ -33,6 +33,18 @@ try {
   const geminiModel = readEnv('GEMINI_MODEL') || 'gemini-3.5-flash-lite'
   const slackWebhookUrl = readEnv('SLACK_WEBHOOK_URL')
   const followUpFrom = readEnv('FOLLOWUP_FROM_EMAIL')
+  // Same kill switch and daily limits as the Worker (apps/api/src/env.ts): AI runs unless AI_ENABLED=false,
+  // and every Gemini call is first reserved against the shared reserve_ai_call quota.
+  const aiEnabled = readEnv('AI_ENABLED').toLowerCase() !== 'false'
+  const limit = (name, fallback, max) => {
+    const raw = readEnv(name)
+    if (!raw) return fallback
+    const value = Number(raw)
+    if (!Number.isInteger(value) || value < 0 || value > max) configProblems.push(`${name} must be an integer from 0 to ${max}`)
+    return value
+  }
+  const aiDailyLimitPerWorkspace = limit('AI_DAILY_LIMIT_PER_WORKSPACE', 25, 10000)
+  const aiDailyLimitGlobal = limit('AI_DAILY_LIMIT_GLOBAL', 150, 100000)
   if (!UUID_RE.test(workspaceId)) configProblems.push('LEADPILOT_WORKSPACE_ID must be a workspace UUID')
   if (!/^https?:\/\/[^\s/]+$/.test(supabaseUrl)) configProblems.push('SUPABASE_URL must be like https://<project-ref>.supabase.co')
   if (!MODEL_RE.test(geminiModel)) configProblems.push('GEMINI_MODEL must be a model id such as gemini-3.5-flash-lite')
@@ -43,6 +55,9 @@ try {
     workspaceId: workspaceId.toLowerCase(),
     supabaseUrl,
     geminiModel,
+    aiEnabled,
+    aiDailyLimitPerWorkspace,
+    aiDailyLimitGlobal,
     slackConfigured: slackSkipReason === null,
     slackSkipReason,
     followUpFromConfigured: EMAIL_RE.test(followUpFrom.toLowerCase()),

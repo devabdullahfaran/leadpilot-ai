@@ -1,4 +1,4 @@
-import { normalizeEmail, normalizeWebsite, type Intake, type IntakeResult, type QualificationStatus } from '@leadpilot/shared'
+import { normalizeEmail, normalizeWebsite, websiteForStorage, type Intake, type IntakeResult, type QualificationStatus } from '@leadpilot/shared'
 import { ApiError, badRequest, conflict, fromPostgrest } from '../lib/errors'
 import { log } from '../lib/logger'
 import type { ExecutionRow } from '../lib/mappers'
@@ -108,7 +108,8 @@ export async function processIntake(ctx: PipelineContext, input: Intake, options
       async () => {
         if (!input.website) return { value: null, note: 'Submission is valid' }
         const normalized = normalizeWebsite(input.website)
-        return normalized
+        const stored = websiteForStorage(input.website)
+        return normalized !== null && stored === normalized
           ? { value: normalized, note: 'Submission is valid' }
           : { value: input.website, note: 'Submission is valid; website kept as entered (not a parseable URL)' }
       },

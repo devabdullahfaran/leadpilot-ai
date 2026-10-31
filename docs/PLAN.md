@@ -58,14 +58,20 @@ scripts/          local DB reset, seed generation
 
 ## 4. Phase tracker
 
+Last updated 2026-10-31 (counts from commands run that day).
+
 | Phase | Item | Status |
 |---|---|---|
 | 1 | Environment inspection, research, architecture | Done |
 | 2 | Monorepo, TS, Tailwind/shadcn, shared contracts, env examples | Done |
 | 2 | Migrations (schema, RLS, grants, quota RPC, analytics RPCs) applied to local PG + SQL smoke test | Done |
-| 3 | Auth (Supabase Auth + Worker JWT verification), lead CRUD, dashboard, lead detail | In progress |
-| 4 | Gemini integration, scoring, AI qualification UI | In progress |
-| 5 | Slack, executions/retries, n8n workflow | In progress |
-| 6 | Typecheck, lint, unit, DB isolation, API integration, Playwright | Pending |
-| 7 | Cloudflare/Supabase deployment | Blocked on credentials |
-| 8 | Screenshots, README, demo checklist | Pending |
+| 3 | Auth (Supabase Auth + Worker JWT verification), lead CRUD, dashboard, lead detail | Done locally (JWT path tested with local HS256 tokens; real Supabase Auth not yet exercised) |
+| 4 | Gemini integration, scoring, AI qualification UI | Done with stubbed Gemini responses; **no real Gemini call yet** (needs owner's key) |
+| 5 | Slack, executions/retries | Done with stubbed Slack; no real Slack message sent yet |
+| 5 | n8n workflow | Built; JSON validation + 46 Code-node tests pass. Executed in local n8n 2.45.7 (Docker) with `AI_ENABLED=false`: new/duplicate/honeypot/invalid/no-token cases verified against PostgREST. Gemini/Slack branches pending keys |
+| 6 | Typecheck, lint, unit (shared 43, API 62, web 40), DB isolation (120), API integration (35) | Done |
+| 6 | Playwright E2E | In progress (preview spec being written; not yet run in this tracker) |
+| 7 | Cloudflare/Supabase deployment | Blocked on owner's Cloudflare, Supabase and Gemini accounts; guide in DEPLOYMENT.md (not yet executed) |
+| 8 | README, ARCHITECTURE, DEPLOYMENT, DEMO-CHECKLIST, LICENSE | Done |
+| 8 | Screenshots (`docs/screenshots/`) | Pending (referenced by README; not captured yet) |
+| 8 | Independent code review, public GitHub push | Pending |

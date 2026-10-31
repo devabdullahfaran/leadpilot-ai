@@ -40,6 +40,20 @@ export function normalizeWebsite(website: string | null | undefined): string | n
   }
 }
 
+/** Maximum stored website length (leads.website CHECK constraint and the request schemas). */
+export const WEBSITE_MAX_LENGTH = 300
+
+/**
+ * Website value to store: the normalized URL when it parses and still fits the column, otherwise the input
+ * as entered (already limited to WEBSITE_MAX_LENGTH by validation). Normalizing can add "https://", so a
+ * valid 300-character input must not be turned into a value the database rejects.
+ */
+export function websiteForStorage(website: string | null | undefined): string | null {
+  if (!website) return null
+  const normalized = normalizeWebsite(website)
+  return normalized !== null && normalized.length <= WEBSITE_MAX_LENGTH ? normalized : website
+}
+
 export function emailDomain(email: string): string {
   const at = email.lastIndexOf('@')
   return at === -1 ? '' : email.slice(at + 1).toLowerCase()
