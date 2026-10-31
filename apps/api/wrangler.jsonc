@@ -1,0 +1,29 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "leadpilot-api",
+  "main": "src/index.ts",
+  // Dates from 2026-08-04 enable nodejs_compat by default; this Worker does not rely on Node APIs.
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  "observability": { "enabled": true },
+  // Non-secret configuration. Secrets (SUPABASE_SECRET_KEY, GEMINI_API_KEY, ENCRYPTION_KEY, SUPABASE_JWT_SECRET)
+  // are set with `wrangler secret put <NAME>` and are never committed. See docs/DEPLOYMENT.md.
+  "vars": {
+    "ENVIRONMENT": "production",
+    "SUPABASE_URL": "https://YOUR-PROJECT-REF.supabase.co",
+    "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_REPLACE_ME",
+    "ALLOWED_ORIGINS": "https://leadpilot-ai-demo.pages.dev",
+    "GEMINI_MODEL": "gemini-3.5-flash-lite",
+    "GEMINI_TIMEOUT_MS": "20000",
+    "AI_ENABLED": "true",
+    "AI_DAILY_LIMIT_GLOBAL": "150",
+    "AI_DAILY_LIMIT_PER_WORKSPACE": "25"
+  },
+  // Optional Workers Rate Limiting bindings. If your plan does not support them, delete this block:
+  // the API falls back to a best-effort in-memory limiter (per isolate).
+  "ratelimits": [
+    { "name": "API_RATE_LIMITER", "namespace_id": "41001", "simple": { "limit": 120, "period": 60 } },
+    { "name": "AI_RATE_LIMITER", "namespace_id": "41002", "simple": { "limit": 6, "period": 60 } },
+    { "name": "INTAKE_RATE_LIMITER", "namespace_id": "41003", "simple": { "limit": 10, "period": 60 } }
+  ]
+}

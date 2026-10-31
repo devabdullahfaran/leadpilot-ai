@@ -1,0 +1,17 @@
+# Copy to .dev.vars for `wrangler dev`. Never commit .dev.vars.
+ENVIRONMENT=development
+SUPABASE_URL=https://YOUR-PROJECT-REF.supabase.co
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
+# Server-only. A new-style secret key (sb_secret_...) or a legacy service_role JWT.
+SUPABASE_SECRET_KEY=sb_secret_xxx
+# Only for projects still signing user tokens with the legacy HS256 shared secret.
+# SUPABASE_JWT_SECRET=
+ALLOWED_ORIGINS=http://localhost:5173
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-3.5-flash-lite
+GEMINI_TIMEOUT_MS=20000
+AI_ENABLED=true
+AI_DAILY_LIMIT_GLOBAL=150
+AI_DAILY_LIMIT_PER_WORKSPACE=25
+# 32 random bytes, base64. Generate with: openssl rand -base64 32
+ENCRYPTION_KEY=

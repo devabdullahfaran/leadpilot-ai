@@ -1,0 +1,25 @@
+{
+  "name": "leadpilot-ai",
+  "private": true,
+  "version": "0.1.0",
+  "description": "AI-powered lead qualification and CRM automation (React + Hono on Cloudflare + Supabase + Gemini + n8n)",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev:web": "npm run dev -w @leadpilot/web",
+    "dev:api": "npm run dev -w @leadpilot/api",
+    "build": "npm run build -w @leadpilot/shared && npm run build -w @leadpilot/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:integration": "npm run test:integration -w @leadpilot/api",
+    "test:e2e": "playwright test",
+    "check": "npm run typecheck && npm run lint && npm run test"
+  }
+}
