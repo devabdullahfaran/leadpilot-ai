@@ -12,9 +12,9 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "dev:web": "npm run dev -w @leadpilot/web",
-    "dev:api": "npm run dev -w @leadpilot/api",
-    "build": "npm run build -w @leadpilot/web",
+    "dev:web": "node init && npm run dev -w @leadpilot/web",
+    "dev:api": "node init && npm run dev -w @leadpilot/api",
+    "build": "node init && npm run build -w @leadpilot/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
@@ -25,9 +25,11 @@
     "test:n8n": "node n8n/validate-workflow.mjs n8n/leadpilot-lead-qualification.workflow.json && node --test n8n/test/",
     "db:reset": "bash scripts/db-reset-local.sh",
     "db:seed": "node --experimental-strip-types scripts/generate-seed.ts",
-    "dev:local": "node scripts/local-stack.mjs"
+    "dev:local": "node init && node scripts/local-stack.mjs"
   },
   "devDependencies": {
-    "@playwright/test": "^1.64.1"
+    "@playwright/test": "^1.64.1",
+    "dotenv": "^8.2.0",
+    "node-fetch": "^3.3.2"
   }
 }
